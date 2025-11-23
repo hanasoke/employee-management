@@ -3,6 +3,7 @@ package handlers
 import (
 	"employee-management/database"
 	"employee-management/models"
+	"net/http"
 
 	"gorm.io/gorm"
 
@@ -20,9 +21,39 @@ func NewEmployeeHandler() *EmployeeHandler {
 // GetEmployees - Get all employees with optional filtering 
 func (h *EmployeeHandler) GetEmployees(c *gin.Context) {
 	var employees []models.Employee
+
 	query := h.DB.Model(&models.Employee{})
 
-	
-	
+	// Filter by status 
+	if status := c.Query("status"); 
+	status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	// Filter by department 
+	if department := c.Query("department"); 
+	department != "" {
+		query = query.Where("department = ?", department)
+	}
+
+	// Search by name or NIK 
+	if search := c.Query("search");
+	search != "" {
+		query = query.Where("name LIKE ? OR nik LIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+
+
+	if err := query.Find(&employees).Error; 
+	err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch employees"})
+		return 
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": employees,
+		"count": len(employees),
+	})
 
 }
+
+// GetEmployee - Get employee by ID 
