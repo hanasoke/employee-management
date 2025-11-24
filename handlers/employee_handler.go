@@ -13,91 +13,101 @@ import (
 )
 
 type EmployeeHandler struct {
-	DB *gorm.DB 
+	DB *gorm.DB
 }
 
 func NewEmployeeHandler() *EmployeeHandler {
 	return &EmployeeHandler{DB: database.DB}
 }
 
-// GetEmployees - Get all employees with optional filtering 
+// GetEmployees - Get all employees with optional filtering
 func (h *EmployeeHandler) GetEmployees(c *gin.Context) {
 	var employees []models.Employee
 
 	query := h.DB.Model(&models.Employee{})
 
-	// Filter by status 
-	if status := c.Query("status"); 
-	status != "" {
+	// Filter by status
+	if status := c.Query("status"); status != "" {
 		query = query.Where("status = ?", status)
 	}
 
-	// Filter by department 
-	if department := c.Query("department"); 
-	department != "" {
+	// Filter by department
+	if department := c.Query("department"); department != "" {
 		query = query.Where("department = ?", department)
 	}
 
-	// Search by name or NIK 
-	if search := c.Query("search");
-	search != "" {
+	// Search by name or NIK
+	if search := c.Query("search"); search != "" {
 		query = query.Where("name LIKE ? OR nik LIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
-
-	if err := query.Find(&employees).Error; 
-	err != nil {
+	if err := query.Find(&employees).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch employees"})
-		return 
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": employees,
+		"data":  employees,
 		"count": len(employees),
 	})
 
 }
 
-// GetEmployee - Get employee by ID 
+// GetEmployee - Get employee by ID
 func (h *EmployeeHandler) GetEmployee(c *gin.Context) {
 	id := c.Param("id")
 
-	var employee models.Employee 
+	var employee models.Employee
 	if err := h.DB.First(&employee, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Employee not found"})
-		return 
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data":employee})
+	c.JSON(http.StatusOK, gin.H{"data": employee})
 }
 
-// CreateEmployee - Create new employee 
+// CreateEmployee - Create new employee
 func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 	var req models.EmployeeRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return 
+		return
 	}
 
-	// Validate email 
+	// Validate email
 	if !utils.IsValidEmail(req.Email) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
-		return 
+		return
 	}
 
-	// Validate hire date 
+	// Validate hire date
 	if !utils.IsValidDate(req.HireDate) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid hire date format. Use YYYY-MM-DD"})
-		return 
+		return
 	}
 
-	// Validate status if provided 
+	// Validate status if provided
 	if req.Status != "" && !utils.IsValidStatus(req.Status) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status"})
-		return 
+		return
 	}
 
 	hireDate, _ := time.Parse("2006-01-02", req.HireDate)
-	
+
+	employee := models.Employee{
+		NIK:        req.NIK,
+		Name:       req.Name,
+		Email:      req.Email,
+		Position:   req.Position,
+		Department: req.Department,
+		Salary:     req.Salary,
+		HireDate:   hireDate,
+		Status:     req.Status,
+	}
+
+	if employee.Status == "" {
+		employee.Status = "active"
+	}
+
 }
