@@ -57,3 +57,14 @@ func (h *EmployeeHandler) GetEmployees(c *gin.Context) {
 }
 
 // GetEmployee - Get employee by ID 
+func (h *EmployeeHandler) GetEmployee(c *gin.Context) {
+	id := c.Param("id")
+
+	var employee models.Employee 
+	if err := h.DB.First(&employee, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Employee not found"})
+		return 
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data":employee})
+}
