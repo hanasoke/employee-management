@@ -3,7 +3,9 @@ package handlers
 import (
 	"employee-management/database"
 	"employee-management/models"
+	"employee-management/utils"
 	"net/http"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -67,4 +69,35 @@ func (h *EmployeeHandler) GetEmployee(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data":employee})
+}
+
+// CreateEmployee - Create new employee 
+func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
+	var req models.EmployeeRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return 
+	}
+
+	// Validate email 
+	if !utils.IsValidEmail(req.Email) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
+		return 
+	}
+
+	// Validate hire date 
+	if !utils.IsValidDate(req.HireDate) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid hire date format. Use YYYY-MM-DD"})
+		return 
+	}
+
+	// Validate status if provided 
+	if req.Status != "" && !utils.IsValidStatus(req.Status) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status"})
+		return 
+	}
+
+	hireDate, _ := time.Parse("2006-01-02", req.HireDate)
+	
 }
