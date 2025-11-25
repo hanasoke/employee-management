@@ -193,5 +193,24 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 		"message": "Employee updated successfully",
 		"data": employee,
 	})
-
 }
+
+// DeleteEmployee - Delete employee by ID 
+func (h *EmployeeHandler) DeleteEmployee(c *gin.Context) {
+	id := c.Param("id")
+
+	var employee models.Employee 
+	if err := h.DB.First(&employee, id).Error; 
+	err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Employee not found"})
+		return 	
+	}
+
+	if err := h.DB.Delete(&employee).Error; 
+	err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete employee"})
+		return 
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Employee deleted successfully"})
+} 
