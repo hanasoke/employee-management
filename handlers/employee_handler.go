@@ -110,4 +110,22 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 		employee.Status = "active"
 	}
 
+	// Check if NIK or Email already exists 
+	var existingEmployee models.Employee 
+	if err := h.DB.Where("nik = ? OR email = ?", employee.NIK, employee.Email).First(&existingEmployee).Error; err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "NIK or Email already exists"})
+		return 
+	}
+
+	if err := h.DB.Create(&employee).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create employee"})
+		return 
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Employee created successfully",
+		"data": employee,
+	})
 }
+
+// UpdateEmployee - Update employee by ID 
