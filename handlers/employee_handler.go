@@ -110,107 +110,127 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 		employee.Status = "active"
 	}
 
-	// Check if NIK or Email already exists 
-	var existingEmployee models.Employee 
+	// Check if NIK or Email already exists
+	var existingEmployee models.Employee
 	if err := h.DB.Where("nik = ? OR email = ?", employee.NIK, employee.Email).First(&existingEmployee).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "NIK or Email already exists"})
-		return 
+		return
 	}
 
 	if err := h.DB.Create(&employee).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create employee"})
-		return 
+		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Employee created successfully",
-		"data": employee,
+		"data":    employee,
 	})
 }
 
-// UpdateEmployee - Update employee by ID 
+// UpdateEmployee - Update employee by ID
 func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 	id := c.Param("id")
 
 	var employee models.Employee
 	if err := h.DB.First(&employee, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Employee not found"})
-		return 
+		return
 	}
 
-	var req models.EmployeeRequest 
+	var req models.EmployeeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return 
+		return
 	}
 
-	// Validate email 
+	// Validate email
 	if !utils.IsValidEmail(req.Email) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
 	}
 
-	// Validate hire date 
+	// Validate hire date
 	if !utils.IsValidDate(req.HireDate) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid hire date format. Use YYYY-MM-DD"})
-		return 
+		return
 	}
 
 	// Validate status if provided
 	if req.Status != "" && !utils.IsValidStatus(req.Status) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status"})
-		return 
+		return
 	}
 
 	hireDate, _ := time.Parse("2006-01-02", req.HireDate)
 
 	// check if NIK or Email already exists (excluding current employee)
-	var existingEmployee models.Employee 
-	if err := h.DB.Where("(nik = ? OR email = ?) AND id != ?", req.NIK, req.Email, id).First(&existingEmployee).Error; 
-	err == nil {
+	var existingEmployee models.Employee
+	if err := h.DB.Where("(nik = ? OR email = ?) AND id != ?", req.NIK, req.Email, id).First(&existingEmployee).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "NIK or Email already exists"})
-		return 
+		return
 	}
 
 	// Update employee
-    updates := models.Employee{
-        NIK        : req.NIK,
-        Name	   : req.Name,
-        Email      : req.Email,
-        Position   : req.Position,
-        Department : req.Department,
-        Salary     : req.Salary,
-        HireDate   : hireDate,
-        Status     : req.Status,
-    }
+	updates := models.Employee{
+		NIK:        req.NIK,
+		Name:       req.Name,
+		Email:      req.Email,
+		Position:   req.Position,
+		Department: req.Department,
+		Salary:     req.Salary,
+		HireDate:   hireDate,
+		Status:     req.Status,
+	}
 
-	if err := h.DB.Model(&employee).Updates(updates).Error; 
-	err != nil {
+	if err := h.DB.Model(&employee).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update employee"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Employee updated successfully",
-		"data": employee,
+		"data":    employee,
 	})
 }
 
-// DeleteEmployee - Delete employee by ID 
+// DeleteEmployee - Delete employee by ID
 func (h *EmployeeHandler) DeleteEmployee(c *gin.Context) {
 	id := c.Param("id")
 
-	var employee models.Employee 
-	if err := h.DB.First(&employee, id).Error; 
-	err != nil {
+	var employee models.Employee
+	if err := h.DB.First(&employee, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Employee not found"})
-		return 	
+		return
 	}
 
-	if err := h.DB.Delete(&employee).Error; 
-	err != nil {
+	if err := h.DB.Delete(&employee).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete employee"})
-		return 
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Employee deleted successfully"})
-} 
+}
+
+// GetEMployeeStats - Get employee statistics
+func (h *EmployeeHandler) GetEmployeeStats(c *gin.Context) {
+	var stats struct {
+		TotalEmployees   int64   `json:"total_employees"`
+		ActiveEmployees  int64   `json:"active_employees"`
+		TotalDepartments int64   `json:"total_departments"`
+		AverageSalary    float64 `json:"average_salary"`
+	}
+
+	// Total employees
+	h.DB.Model(&models.Employee{}).Count(&stats.TotalEmployees)
+
+	// Active employees
+	h.DB.Model(&models.Employee{}).Where("status = ?", "active").Count(&stats.ActiveEmployees)
+
+	// Total departments
+	h.DB.Model(&models.Employee{}).Distinct("department").Count(&stats.TotalDepartments)
+
+	// Average salary
+	h.DB.Model(&models.Employee{}).Select("AVG(salary)").Row().Scan(&stats.AverageSalary)
+
+	c.JSON(http.StatusOK, gin.H{"data": stats})
+}
